@@ -39,16 +39,10 @@
                 <div class="filterGroup categoryGroup">
                     <p class="filterTitle">Categories</p>
                     <ul>
-                        <li>
-                            <label class="checkbox">
-                                <input type="checkbox" style="display:none">
-                                <i class="fas fa-check"></i>
-                            </label>
-                            <p>All</p>
-                        </li>
                         <li v-for="category in categoryArr">
-                            <label class="checkbox">
+                            <label class="checkbox" :class="chackBoxStyle(category)">
                                 <input type="checkbox" style="display:none" v-model="category.value">
+                                <i class="fas fa-check"></i>
                             </label>
                             <p>{{ category.name }}</p>
                         </li>
@@ -98,11 +92,13 @@
                     <div class="pagination">
                         <ul>
                             <li>
-                                <i></i>
+                                <i class="fas fa-step-backward"></i>
                             </li>
-                            <li></li>
                             <li>
-                                <i></i>
+
+                            </li>
+                            <li>
+                                <i class="fas fa-step-forward"></i>
                             </li>
                         </ul>
                     </div>
@@ -121,7 +117,10 @@ export default {
         filterActivityList : [],
         categoryArr : [],
         locationArr : [],
-        nowLocation : {}
+        nowLocation : {},
+        onePageData : 10,
+        dataAfterCut : [],
+        nowShowPage : []
     }
   },
   computed: {
@@ -156,6 +155,7 @@ export default {
         this.filterActivityList = arr;
         this.categoryArr = this.setFilterArr(this.activityList , 'category');
         this.locationArr = this.setFilterArr(this.activityList , 'location');
+        this.cutPage();
       },
       pictureSet(activity){
           return {
@@ -164,17 +164,34 @@ export default {
       },
       setFilterArr(list , filter) {
         let newArr = _.uniqBy(list , filter);
-
-        return newArr.map( activity => {
+        let newFilterArr = [
+            {
+                name : 'All',
+                value : true,
+            }
+        ]
+        newArr.map( activity => {
             let obj = {
                 name : activity[filter],
                 value : false
             };
-            return obj
+            newFilterArr.push(obj);
         });
+        return newFilterArr;
       },
       changeLocation() {
-          
+
+      },
+      chackBoxStyle(category) {
+          return category.value ? 'active' : undefined;
+      },
+      cutPage() {
+          this.filterListAmout.map( (activity,key) => {
+              if(key % this.onePageData != 0){
+                  let arr = [];
+                  arr.push(activity);
+              }
+          } )
       }
   }
 }
@@ -257,6 +274,7 @@ export default {
             width: $asideWidth;
             .filterGroup{
                 padding: 10px 20px;
+                border-bottom: 1px solid #D7D7D7;
                 .filterTitle{
                     font-weight: bold;
                     margin: 10px 0;
@@ -280,6 +298,7 @@ export default {
                 }
                 &.categoryGroup{
                     text-transform: capitalize;
+                    border-bottom:none;
                     ul{
                         li{
                             display: flex;
@@ -353,6 +372,16 @@ export default {
                                 }
                             }
                         }
+                    }
+                }
+            }
+            .pagination{
+                ul{
+                    display: flex;
+                    li{
+                        background-color: #fff;
+                        padding: 10px;
+                        
                     }
                 }
             }
