@@ -1,11 +1,11 @@
 <template>
-    <div class="wrapper">
+    <div class="wrapper" :class="{ articlaMode : $route.path == '/article' }">
         <header>
             <div class="container">
-                <div class="logo">
+                <div class="logo" @click="$router.push('/')">
                     <p>HaveFun</p>
                 </div>
-                <div class="search">
+                <div class="search" @click="setToListPage">
                     <i class="fas fa-search"></i>
                     <input type="text" placeholder="Explore your own activities" @keyup="filterAll" v-model="searchText">
                 </div>
@@ -13,7 +13,7 @@
         </header>
         <div class="container main">
             <aside>
-                <div class="filterGroup locationGroup" @click="collapseFilter('location')">
+                <div class="filterGroup locationGroup" @click="collapseFilter('location')" :class="collapseStyle('location')">
                     <div class="filterTitleGroup">
                         <p class="filterTitle">Location</p>
                         <div class="filterCollapse">
@@ -27,7 +27,7 @@
                         </select>
                     </div>
                 </div>
-                <div class="filterGroup dateGroup" @click="collapseFilter('date')">
+                <div class="filterGroup dateGroup" @click="collapseFilter('date')" :class="collapseStyle('date')">
                     <div class="filterTitleGroup">
                         <p class="filterTitle">Date</p>
                         <div class="filterCollapse">
@@ -52,7 +52,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="filterGroup categoryGroup" @click="collapseFilter('category')">
+                <div class="filterGroup categoryGroup" @click="collapseFilter('category')" :class="collapseStyle('category')">
                     <div class="filterTitleGroup">
                         <p class="filterTitle">Categories</p>
                         <div class="filterCollapse">
@@ -74,59 +74,20 @@
                 </div>
             </aside>
             <article>
-                <div class="filterResult">
-                    <p class="resultText">Showing <span class="amount">{{ filterListAmout }}</span> results by...</p>
-                    <ul class="filterItem">
-                        <li>
-                            <p></p>
-                            <button>
-                                <i></i>
-                            </button>
-                        </li>
-                    </ul>
-                </div>
-                <div class="articleList">
-                    <ul>
-                        <li v-for="activity in nowShowPage" class="article">
-                            <div class="picture" :style="pictureSet(activity)"></div>
-                            <div class="information">
-                                <h3 class="title">{{ activity.title }}</h3>
-                                <p class="content">{{ activity.content }}</p>
-                                <div class="orgAndCategory">
-                                    <h4 class="orgnization">{{ activity.orgnization }}</h4>
-                                    <span class="category">{{ activity.category }}</span>
-                                </div>
-                                <div class="locAndTime">
-                                    <div class="location item">
-                                        <i class="fas fa-map-marker"></i>
-                                        <p>{{ activity.location }}</p>
-                                    </div>
-                                    <div class="time item">
-                                        <i class="far fa-calendar-alt"></i>
-                                        <p>
-                                            <span>{{ timeFormat(activity,'startTime') }}</span>
-                                            <span class="timeTo">-</span>
-                                            <span>{{ timeFormat(activity,'endTime') }}</span>
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </li>
-                    </ul>
-                    <div class="pagination">
-                        <ul>
-                            <li @click="changePage(nowPage - 1)" :class="controlStyle('previous')">
-                                <i class="fas fa-angle-double-left"></i>
-                            </li>
-                            <li v-for="page in pageArr" :class="pageStyle(page)" @click="changePage(page)">
-                                <span>{{ page }}</span>
-                            </li>
-                            <li @click="changePage(nowPage + 1)" :class="controlStyle('next')">
-                                <i class="fas fa-angle-double-right"></i>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
+                <List
+                    v-show="$route.path == '/'"
+                    :now-show-page="nowShowPage"
+                    :filter-list-amout="filterListAmout"
+                    :total-page="totalPage"
+                    :now-page="nowPage"
+                    :all-kind-filter="allKindFilter"
+                    @changePage="changePage"
+                    @removeFilter="removeFilter"
+                ></List>
+                <Article
+                    v-show="$route.path == '/article'"
+                    :activity-list="activityList"
+                ></Article>
             </article>
         </div>
     </div>
@@ -134,6 +95,8 @@
 
 <script>
 window._ = require('lodash');
+import List from './List';
+import Article from './Article';
 export default {
   data () {
     return {
@@ -147,36 +110,20 @@ export default {
         nowShowPage : [],
         totalPage : 0,
         nowPage : 0,
-        offset : 3,
         startTime: '',
         endTime: '',
-        searchText : ''
+        searchText : '',
+        expandFilter : 'location',
+        allKindFilter : {},
     }
+  },
+  components : {
+      List , Article
   },
   computed: {
       filterListAmout() {
           return this.filterActivityList.length;
       },
-      pageArr() {
-          let firstPage = 0;
-          let lastPage = 0;
-          if(this.totalPage <= (1 + this.offset * 2 ) ) {
-              firstPage = 1;
-              lastPage = this.totalPage;
-          }else if(this.nowPage < (1 + this.offset * 2 )){
-              firstPage = 1;
-              lastPage = 1 + this.offset * 2;
-          }else if(this.nowPage > this.totalPage - (1 + this.offset * 2 )){
-              firstPage = this.totalPage - (1 + this.offset * 2 );
-              lastPage = this.totalPage;
-          }else{
-              firstPage = this.nowPage - this.offset;
-              lastPage = this.nowPage + this.offset;
-          }
-          let arr = [];
-          for (let i = firstPage; i <= lastPage; i++) arr.push(i);
-          return arr ;
-      }
   },
   created() {
       this.fetchData();
@@ -214,7 +161,7 @@ export default {
             arr = arr.map(activity => {
                 return {
                     ...activity,
-                    endTime : moment(activity.startTime).add(activity.duringDay, 'days')
+                    endTime : moment(activity.startTime).add(activity.duringDay, 'days').format('YYYY/M/DD')
                 }
             })
             this.activityList = arr;
@@ -225,11 +172,6 @@ export default {
             this.cutPage();
             this.changePage(1);
         } );
-      },
-      pictureSet(activity){
-          return {
-              backgroundImage : `url(${activity.picture})`
-          }
       },
       setFilterArr(list , filter) {
         let newArr = _.uniqBy(list , filter);
@@ -273,24 +215,6 @@ export default {
           this.nowPage = page;
           page -= 1;
           this.nowShowPage = this.dataAfterCut[page];
-      },
-      pageStyle(page) {
-          return this.nowPage == page ? 'nowPage' : undefined;
-      },
-      controlStyle(control) {
-          switch (control) {
-              case 'previous':
-                  return this.nowPage == 1 ? 'disable' : undefined;
-                  break;
-              case 'next':
-                  return this.nowPage == this.totalPage ? 'disable' : undefined;
-                  break;
-              default:
-                  break;
-          }
-      },
-      timeFormat(activity,type){
-        return moment(activity[type]).format('YYYY/M/DD');
       },
       changeLocation() {
           if(this.nowLocation == 'All'){
@@ -368,11 +292,72 @@ export default {
           this.changeLocation();
           this.filterDate();
           this.$nextTick(()=>{
-              this.searchTextFun();
-              !category.target ? this.filterCategory(category) : undefined;
+              if(category){
+                  this.searchTextFun();
+                  if(!category.target){
+                      this.filterCategory(category);
+                      if(category.disable) return;
+                  }
+              }
               this.cutPage();
               this.changePage(1);
+              this.setAllKindFilterArr();
           })
+      },
+      collapseFilter(type) {
+          this.expandFilter = type;
+      },
+      collapseStyle(type) {
+          return this.expandFilter == type ? 'expand' : undefined;
+      },
+      removeFilter(filter,key){
+          switch (key) {
+              case 'location':
+                  this.nowLocation = 'All';
+                  this.filterAll();
+                  break;
+              case 'time':
+                  this.startTime = '';
+                  this.endTime = '';
+                  this.filterAll();
+                  break;
+              case 'searchText':
+                  this.searchText = '';
+                  this.filterAll();
+                  break;
+              case 'category':
+                  let fcategory = {
+                      name : filter,
+                      value : false,
+                      disable : false
+                  }
+                  this.categoryArr = this.categoryArr.map(category => {
+                      if(category.name == fcategory.name) return fcategory;
+                      return category;
+                  });
+                  this.filterAll(fcategory);
+                  break;
+              default:
+                  break;
+          }
+      },
+      setAllKindFilterArr() {
+          this.allKindFilter = {};
+          let categoryArr = [];
+          this.categoryArr.map(category => {
+              if(category.name == 'All') return;
+              category.value ? categoryArr.push(category.name) : undefined;
+          })
+          if(this.startTime && this.endTime) this.allKindFilter.time = `${this.startTime} - ${this.endTime}`;
+          if(this.nowLocation != 'All') this.allKindFilter.location = this.nowLocation;
+          if(this.searchText != '') this.allKindFilter.searchText = this.searchText;
+          this.allKindFilter = {
+              ...this.allKindFilter,
+              category : categoryArr
+          };
+      },
+      setToListPage() {
+          if(this.$route.path == '/article') this.$router.push('/');
       }
   }
 }
@@ -419,6 +404,58 @@ export default {
             color: #fff;
         }
     }
+    .article{
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        .picture{
+            background-position: center;
+            background-size: cover;
+        }
+        .title{
+            margin: 10px 0;
+            color: #9013FE;
+        }
+        .content{
+            line-height: 1.5;
+            margin: 10px 0;
+            text-overflow: ellipsis;
+            height: 100px;
+            overflow: hidden;
+        }
+        .orgAndCategory{
+            display: flex;
+            padding: 15px 0;
+            .category{
+                background-color: #D7D7D7;
+                color: #fff;
+                padding: 2px 10px;
+                border-radius: 10px;
+                margin: 0 0 0 10px;
+            }
+            .orgnization{
+                font-weight: bold;
+                color: #000000;
+            }
+        }
+        .locAndTime{
+            display: flex;
+            p{
+                color: #9B9B9B;
+            }
+            i{
+                color: #000;
+                margin: 0 5px 0 0;
+            }
+            .item{
+                display: flex;
+                &.time{
+                    margin: 0 0 0 20px;
+                }
+            }
+        }
+        .information{
+            background-color: #fff;
+        }
+    }
     header{
         background-color: #7828B4;
         padding: 20px;
@@ -432,12 +469,15 @@ export default {
                 font-size: 30px;
                 letter-spacing: 2px;
                 font-weight: bold;
-                padding: 0 40px;
+                padding: 20px 40px;
+                margin: -20px 0;
+                cursor: pointer;
             }
             .search{
                 margin: 0 0 0 20px;
                 border-bottom: 1px solid #fff;
                 padding: 5px;
+                width: 30%;
                 i{
                     color: #fff;
                 }
@@ -449,7 +489,7 @@ export default {
                     color: #fff;
                     background-color: transparent;
                     border: none;
-                    width: 100%;
+                    width: 80%;
                 }
 
             }
@@ -457,7 +497,7 @@ export default {
     }
     .wrapper{
         background-color: #f2f2f2;
-        min-height: 100vh;
+        min-height: 120vh;
     }
     .container{
         margin: auto;
@@ -469,6 +509,9 @@ export default {
             .filterGroup{
                 padding: 10px 20px;
                 border-bottom: 1px solid #D7D7D7;
+                .filterCollapse{
+                    display: none;
+                }
                 .filterTitle{
                     font-weight: bold;
                     margin: 10px 0;
@@ -480,6 +523,7 @@ export default {
                 }
                 &.dateGroup{
                     table{
+                        width: calc( 100% - 10px);
                         th{
                             font-weight: normal;
                             padding: 0 5px;
@@ -487,6 +531,9 @@ export default {
                         }
                         td{
                             padding: 5px 0;
+                            input{
+                                width: 100%;
+                            }
                         }
                     }
                 }
@@ -516,6 +563,42 @@ export default {
                         color: #7828B4;
                     }
                 }
+                ul.filterItem{
+                    display: flex;
+                    color:#9013FE;
+                    margin: 10px 0 0 0;
+                    flex-wrap: wrap;
+                    li{
+                        border: 1px solid #9013FE;
+                        border-radius: 30px;
+                        padding: 10px;
+                        display: flex;
+                        margin: 10px 10px 0 0;
+                        align-items: center;
+                        font-style: italic;
+                        cursor: pointer;
+                        &:hover{
+                            background-color: #9013FE;
+                            color: #fff;
+                            border-color: #fff;
+                            a{
+                                border-color: #fff;
+                            }
+                        }
+                        a{
+                            margin: 0 0 0 10px;
+                            border: 1px solid #9013fe;
+                            border-radius: 50%;
+                            width: 20px;
+                            height: 20px;
+                            text-align: center;
+                            cursor: pointer;
+                            i{
+                                line-height: 20px;
+                            }
+                        }
+                    }
+                }
             }
             .articleList{
                 width: 100%;
@@ -524,54 +607,16 @@ export default {
                         display: flex;
                         width: 100%;
                         margin: 20px 0;
-                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                        &:hover{
+                            box-shadow: 0 0 10px rgba(0,0,0,.2);
+                        }
+                        cursor: pointer;
                         .picture{
                             flex: 1;
-                            background-position: center;
-                            background-size: cover;
                         }
                         .information{
-                            background-color: #fff;
                             padding: 20px;
                             flex: 2;
-                            .title{
-                                margin: 10px 0;
-                                color: #9013FE;
-                            }
-                            .content{
-                                line-height: 1.5;
-                                margin: 10px 0;
-                                text-overflow: ellipsis;
-                                height: 100px;
-                                overflow: hidden;
-                            }
-                            .orgAndCategory{
-                                display: flex;
-                                padding: 15px 0;
-                                .category{
-                                    background-color: #D7D7D7;
-                                    color: #fff;
-                                    padding: 2px 10px;
-                                    border-radius: 10px;
-                                    margin: 0 0 0 10px;
-                                }
-                            }
-                            .locAndTime{
-                                display: flex;
-                                p{
-                                    color: #9B9B9B;
-                                }
-                                i{
-                                    color: #000;
-                                    margin: 0 5px 0 0;
-                                }
-                                .item{
-                                    display: flex;
-                                    &.time{
-                                        margin: 0 0 0 20px;
-                                    }
-                                }
-                            }
                         }
                     }
                 }
@@ -665,12 +710,14 @@ export default {
                     padding: 10px 0;
                     width: 100%;
                     font-size: 25px;
+                    margin: 0;
                 }
                 .search{
                     border-bottom-color: #000;
-                    margin: 0 20px;
+                    margin: 10px 20px;
                     padding: 10px 0 5px 0;
                     text-align: center;
+                    width: 90%;
                     i{
                         color: #000;
                     }
@@ -687,12 +734,15 @@ export default {
             display: block;
             aside{
                 width: 100%;
+                background-color:#D7D7D7;
                 .filterGroup{
+                    border-bottom-color: #aaa;
                     .filterTitleGroup{
                         display: flex;
                         align-items: center;
                         justify-content: space-between;
                         .filterCollapse{
+                            display: block;
                             color: #9b9b9b;
                             i.fa-plus{
                                 display: block;
@@ -703,9 +753,13 @@ export default {
                         }
                     }
                     .filterControl{
-                        display: none;
+                        overflow: hidden;
+                        height: 0;
+                        max-height: 0;
+                        transition: max-height 1s;
                     }
                     &.expand{
+                        background-color:#ebebeb;
                         .filterTitleGroup{
                             .filterCollapse{
                                 i.fa-plus{
@@ -717,13 +771,23 @@ export default {
                             }
                         }
                         .filterControl{
-                            display: block;
+                            height: auto;
+                            max-height: 500px;
                         }
                     }
                 }
             }
             article{
                 width: 100%;
+                padding: 20px 40px;
+                .pagination{
+                    justify-content: center;
+                    ul{
+                        li{
+                            padding: 10px;
+                        }
+                    }
+                }
             }
         }
     }
